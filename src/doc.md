@@ -26,8 +26,10 @@ have pure functions. For example, we can have global variables:
 Program:
     ...
 
-    # constants may be a feature added later
-    a = 3
+    let a = 3
+
+    # the following constant assignment may be added in future
+    # let b := 3
 
     # 
     square :: Int -> Int

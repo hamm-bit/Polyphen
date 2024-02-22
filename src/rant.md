@@ -1,8 +1,8 @@
 This is just a rant/brainfry tab
 
 -- Jan 19th
-Comparing to Haskell, C++ allows far more explicity but at the cost of 
-elegance.
+Comparing to Haskell, C++ allows far more explicity but at the cost
+of elegance.
 The original plan of writing this compiler actually included making a
 "model" using Haskell to justify the rigorousness and feasibility of
 future features. However due to time limitation and my lack of 
@@ -21,6 +21,8 @@ correlation of a system's performance with the compiler and the lang
 design itself.
 
 
+==========================================================================
+
 
 -- Jan 22nd
 Example of global variable in `doc.md` shows variable shadowing
@@ -31,13 +33,100 @@ be overcome. An example being
 ```
 Program:
     ...
-    x = 1
+    let x = 1
 
     # lambda expression
-    parity = (\x -> x % 2) x
+    let parity = (\x -> x % 2) x
 
     ...
 ```
 
-A typical lambda expression that has its argument shadowed by 
-predeclared variable. 
+A typical Haskell-style lambda expression that has its argument 
+shadowed by predeclared variable. 
+
+
+==========================================================================
+
+
+-- Jan 30th
+Var environment is being constructed currently in tokenization step.
+Originally it is thought that filling the env table should be the job
+of the evaluator.
+Since I had no prior experience of actually building a lexer, I went 
+and had a look at other languages' compilers. Polyphen borrows
+syntaxes from Haskell, but with the looks similar to JS (which I dont
+use or know well lol).
+
+Albeit the language currently does not support implicit type inference,
+the underlying structure already has fundamental traits of it. The 
+environments used do not differentiate base types, so type assignments
+are not necessary. I personally prefer this just for the sake of testing
+my implementation skills with knowledge obtained from this past term
+(and maybe in future, OOP with parametric polymorphism).
+
+Of course, from a performance angle this is rather hideous in comparison
+to a classic imperative language C where everything has a predefined 
+type. You do not have to spend computation power trying to figure out the
+type when substituting via environment, nor having to setup huge
+background scheduler supporting garbage collector to scower through the
+environment finding variables and ADTs (in future!) that should be dumped.
+
+
+==========================================================================
+
+
+-- Feb 2nd
+I need to run `coom` everytime a token is lexed, in a lot of branched 
+cases I need to pad over ' ' space. (`pad`)
+If only C++ has something equivalent to Monad `>>=` or `bind` operator...
+
+(bruh moment setup)
+```
+CXX:
+===================================================================
+...
+
+template<typename T>
+class Monad {
+public:
+    Monad(Const T& val) : val(val)
+    {
+    }
+
+    template<typename F>
+    auto operator>>=(F&& f) const {
+        // albeit `return` in c++ is very different from haskell
+        // All programs will then have to maintain a full map of
+        // variable environment.
+        // The performance deficit of the above map is definitely
+        // not worth if we are simply implementing it for Monad,
+        // without a full framework of FP paradigm support.
+        // 
+        return f(v);
+    }
+
+private:
+    T val;
+};
+
+// Terrible shit
+
+...
+===================================================================
+
+```
+
+
+==========================================================================
+
+
+-- Feb 8th
+Assignment operators will take the job of substituting values into the
+tokens. The values for substitutions are unprocessed strings.
+
+
+-- Feb 12th
+When constructing parse tree, the value substitutions will be turned into
+an environemnt then. Tokenization will purely hold the job of seperating
+the tokens from the content.
+Rewritten the shittily implemented tokenization function with LUT (I was mislead).
