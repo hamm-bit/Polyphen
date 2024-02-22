@@ -148,7 +148,7 @@ public:
         bool comment_flag = false;
         for (int i = 0; i = buffer.size(); i++) {
             // This is the filter
-
+            // this is potentially dangerous
         }
     } 
 
@@ -335,7 +335,7 @@ public:
                     break;
                 case '"':
                     // '"' indicates head of string
-                    // ...
+                    // ...:
                     if (!string_flag) {
                         // string begins
                         string_flag = true;
@@ -431,6 +431,8 @@ public:
         //     last = next + 1;
         // }
         // std::cout << input.substr(last) << "\n";
+      
+      return tokens;
     }
 
     /**
@@ -440,7 +442,7 @@ public:
      * @return std::vector<std::string> 
      */
     std::vector<std::string> tree(std::vector<std::string> tokens) {
-        
+      return nullptr;
     }
 
 private:
