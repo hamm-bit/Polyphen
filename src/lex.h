@@ -25,6 +25,9 @@
 #include <string>
 #include <sstream>
 #include <optional>
+#include <functional>
+#include <algorithm>
+#include <any>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -46,7 +49,7 @@ enum class ExpType {
     _char,
     _bool,
     _assign,
-    _apply,             // for FP
+    _app,             // for FP
     _let,               // for FP
     _fun,               // for FP
     _case,              // for FP
@@ -103,13 +106,30 @@ enum class ExpType {
     // type product (pair)
     _inl,
     _inr,
+
+
+    // Not coming soon...
+
+    // idk maybe give this a symbol of `==>`
+    _recapp,            // equivalent to Haskell `map`
+
+    // `@>`
+    _foldl,             // foldl
+
+    // `>@`
+    _foldr,             // foldr
+    
+
 };
 
 enum class GroundValueType {
     // _unit,
+    _char,
+    _str,
     _bool,
     _int_32,
 };
+
 
 
 struct Token {
@@ -118,6 +138,44 @@ struct Token {
     std::optional<std::string> val {};
 };
 
+
+std::unordered_map<std::string, std::function<Token(int, int)>> tokTable = {
+    { "return", [](int row, int col){ Token b={ ExpType::_return, row, col}; return b; } },
+    { "if", [](int row, int col){ Token b={ ExpType::_if, row, col}; return b; } },
+    { "let", [] (int row, int col){ Token b={ ExpType::_let, row, col}; return b;} },
+    { "elif", [] (int row, int col){ Token b={ ExpType::_elif, row, col}; return b;} },
+    { "else", [] (int row, int col){ Token b={ ExpType::_else, row, col}; return b;} },
+    { "(", [] (int row, int col){ Token b={ ExpType::_lpar, row, col}; return b;} },
+    { "[", [] (int row, int col){ Token b={ ExpType::_lbra, row, col}; return b;} },
+    { "::", [] (int row, int col){ Token b={ ExpType::_tdef, row, col}; return b;} },
+    { ":", [] (int row, int col){ Token b={ ExpType::_sdef, row, col}; return b;} },
+    { "==", [] (int row, int col){ Token b={ ExpType::_eq, row, col}; return b;} },
+    { "=", [] (int row, int col){ Token b={ ExpType::_assign, row, col}; return b;} },
+    { "->", [] (int row, int col){ Token b={ ExpType::_map, row, col}; return b;} },
+    { "--", [] (int row, int col){ Token b={ ExpType::_decr, row, col}; return b;} },
+    { "-", [] (int row, int col){ Token b={ ExpType::_sub, row, col}; return b;} },
+    { "++", [] (int row, int col){ Token b={ ExpType::_incr, row, col}; return b;} },
+    { "+", [] (int row, int col){ Token b={ ExpType::_add, row, col}; return b;} },
+    { "*", [] (int row, int col){ Token b={ ExpType::_mul, row, col}; return b;} },
+    { "/", [] (int row, int col){ Token b={ ExpType::_quot, row, col}; return b;} },
+    { "%", [] (int row, int col){ Token b={ ExpType::_rem, row, col}; return b;} },
+    { "?", [] (int row, int col){ Token b={ ExpType::_if, row, col}; return b;} },
+    { "~", [] (int row, int col){ Token b={ ExpType::_else, row, col}; return b;} },
+    { "&", [] (int row, int col){ Token b={ ExpType::_and, row, col}; return b;} },
+    { "|", [] (int row, int col){ Token b={ ExpType::_or, row, col}; return b;} },
+    { "^", [] (int row, int col){ Token b={ ExpType::_xor, row, col}; return b;} },
+    { ">=", [] (int row, int col){ Token b={ ExpType::_ge, row, col}; return b;} },
+    { ">", [] (int row, int col){ Token b={ ExpType::_gt, row, col}; return b;} },
+    { "<=", [] (int row, int col){ Token b={ ExpType::_le, row, col}; return b;} },
+    { "<", [] (int row, int col){ Token b={ ExpType::_lt, row, col}; return b;} },
+};
+
+/**
+ * @brief (deprecated) Classify level-of-operation of arith
+ * 
+ * @param type 
+ * @return std::optional<int> 
+ */
 inline std::optional<int> alu_c(const ExpType type) {
     switch (type) {
         case ExpType::_add:
@@ -199,137 +257,21 @@ public:
                 } 
 
             }
-            switch (c) {
-                case '(':
-                    // start of expression parenthesis
-                    tokens.push_back({ ExpType::_lpar, row, col });
-                    continue;
-                case '[':
-                    // array index
-                    tokens.push_back({ ExpType::_lbra, row, col });
-                    continue;
-                case ':':
-                    /**
-                     * could be
-                     *  - `::`  type definition for function
-                     *  - `:`   ternary `else` operator
-                     */
-                    coom();
-                    if (peek().value() == ':')
-                        tokens.push_back({ ExpType::_tdef, row, col });
-                    else
-                        tokens.push_back({ ExpType::_sdef, row, col });
-                    continue;
-                /*
-                case '{':
-                    // start of brackets
 
-                    break;
-                */
-                case '=':
-                    /**
-                     * could be
-                     *  - `::`  type definition for function
-                     *  - `:`   ternary `else` operator
-                     */
-                    tokens.push_back({ ExpType::_assign, row, col });
-                    
-                    buf.clear();
-                    continue;
-                case '-':
-                    /**
-                     * could be
-                     *  - `-`   negation OR minus arith operator
-                     *  - `--`  decrement arith operator
-                     *  - `->`  type map definition for function
-                     */
-                    coom();
-                    if (peek().value() == '>')
-                        tokens.push_back({ ExpType::_map, row, col });
-                    else if (peek().value() == '-')
-                        tokens.push_back({ ExpType::_decr, row, col });
-                    else
-                        tokens.push_back({ ExpType::_sub, row, col });
-                    continue;
-                case '+':
-                    /**
-                     * could be
-                     *  - `+`   plus arith operator
-                     *  - `++`  increment arith operator
-                     */
-                    coom();
-                    if (peek().value() == '+') {
-                        tokens.push_back({ ExpType::_incr, row, col });
-                        coom();
-                    } else
-                        tokens.push_back({ ExpType::_add, row, col });
-                    continue;
-                case '*':
-                    coom();
-                    tokens.push_back({ ExpType::_mul, row, col });
-                    continue;
-                case '/':
-                    // quotient arith operator
-                    coom();
-                    tokens.push_back({ ExpType::_quot, row, col });
-                    continue;
-                case '%':
-                    // remainder arith operator
-                    coom();
-                    tokens.push_back({ ExpType::_rem, row, col });
-                    continue;
-                case '?':
-                    // ternary logical operator
-                    // this can be treated as an `if`
-                    coom();
-                    tokens.push_back({ ExpType::_if, row, col });
-                    continue;
-                case '~':
-                    // ternary logical operator
-                    // this can be treated as an `else`
-                    coom();
-                    tokens.push_back({ ExpType::_else, row, col });
-                    continue;
-                case '&':
-                    // `and` logical operator
-                    coom();
-                    tokens.push_back({ ExpType::_and, row, col });
-                    continue;
-                case '|':
-                    // `or` logical operator
-                    coom();
-                    tokens.push_back({ ExpType::_or, row, col });
-                    continue;
-                case '>':
-                    /**
-                     * could be
-                     *  - `>`   `gt` 
-                     *  - `>=`  `ge`
-                     */
-                    coom();
-                    if (peek().value() == '=')
-                        tokens.push_back({ ExpType::_ge, row, col });
-                    else
-                        tokens.push_back({ ExpType::_gt, row, col });
-                    continue;
-                case '<':
-                    /**
-                     * could be
-                     *  - `<`   `lt`
-                     *  - `<=`  'le`
-                     */
-                    coom();
-                    if (peek().value() == '=')
-                        tokens.push_back({ ExpType::_le, row, col });
-                    else
-                        tokens.push_back({ ExpType::_lt, row, col });
-                    continue;
+            // LUT for op and keyword
+            if (tokTable.find(buf) != tokTable.end()) {
+                tokens.push_back(tokTable[buf](row, col));
+                buf.clear(); 
+            }
+
+            switch (c) {
                 case ';':
                     // inline break
                     // i.e. ` a++; b++; c++ `
-                    coom();
-                    if (peek().value() != ' ')
-                        std::cerr << "lex -> tokenize : symbol - expecting space, ';' should be used for multiple statements in a line at row: " \
+                    pad();
+                    if (!std::isalpha(peek().value()))
+                        std::cerr << "lex -> tokenize : symbol - expecting valid expression, \
+                                     ';' should be used for multiple statements in a line at row: " \
                             << row << " | col: " << col << std::endl;
                         exit(EXIT_FAILURE); 
                     break;
@@ -344,49 +286,37 @@ public:
                         tokens.push_back({ ExpType::_char, row, col });
                     }
                     coom();
-                    continue;
+                    break;
                 case '#':
                     // '#' backslash indicates comments
                     // skip until end of comment
                     while (peek().value() != '\n') coom();
                     coom();
-                    continue;
+                    break;
                 // case '\\':
                 //     // non-string '\\' allows statemtn across lines
                 //     coom();
-                //     continue;
+                //     break;
                 default:
                     // pass-through statement
-
                     break;
             }
+            buf.clear();
+            continue;
+
             if (std::isalpha(c)) {
                 
                 buf.push_back(coom());
                 while (peek().has_value() && std::isalnum(peek().value())) {
                     buf.push_back(coom());
                 }
-                // ============ keyword ============ 
-                if (buf == "return")
-                    tokens.push_back({ ExpType::_return, row, col });
-                else if (buf == "let")
-                    tokens.push_back({ ExpType::_let, row, col });
-                else if (buf == "for")
-                    tokens.push_back({ ExpType::_for, row, col });
-                else if (buf == "if")
-                    tokens.push_back({ ExpType::_if, row, col });
-                else if (buf == "elif")
-                    tokens.push_back({ ExpType::_elif, row, col });
-                else if (buf == "else")
-                    tokens.push_back({ ExpType::_else, row, col });
-                // ============ variable ============ 
-                else {
-                    if (env.find(buf) == env.end()) {
-                        // variable declaration
-                        env.insert(buf);
-                    }
-                    tokens.push_back({ ExpType::_var, row, col });
+                if (env.find(buf) == env.end()) {
+                    // variable declaration
+                    env.insert(buf);
                 }
+                tokens.push_back({ ExpType::_var, row, col });
+                // The above may be ditched and replaced by actual
+                // eval / tyinf steps
                 buf.clear();
                 continue;
             }
@@ -405,15 +335,18 @@ public:
                         float_flag = peek().value() == '.';
                         continue;
                     }
+                    std::cerr << "lex -> tokenize : numerical - hostile symbol / alphabet in number at row: " \
+                        << row << " | col: " << col << std::endl;
+                    exit(EXIT_FAILURE);
                 }
-                tokens.push_back({ (float_flag) ? ExpType::_int : ExpType::_float, row, col, buf });
+                tokens.push_back({ (float_flag) ? ExpType::_float: ExpType::_int, row, col, buf });
                 // Wait this is the job of the evaluator wtf
                 // tok->type = ExpType::_number;
 
                 buf.clear();
+                continue;
             }
             switch (c) {
-                
                 default:
                     // unknown term
                     std::cerr << "lex -> tokenize : term - unknown term at row: " \
@@ -436,13 +369,53 @@ public:
     }
 
     /**
+     * @brief substitute value to variable before `=`
+     * 
+     * @param 
+     * @return std::string 
+     */
+    std::string valsub() {
+        pad();
+        char c = peek().value();
+        switch (c) {
+            case '\"':
+                // string
+                return crop();
+            case '\'':
+                // char
+                return crop();
+            default:
+                break;
+        }
+        if (std::isdigit(c)) {
+            // coom();
+            // if (peek().value() == 'x') {
+            //     // hex
+            // } else if (peek().value() == 'b') {
+            //     // bin
+            // } else
+            return crop();
+        }
+        if (std::isalpha(c)) {
+            // varsub
+            return crop();
+        }
+    }
+
+    
+
+    /**
      * @brief builds parse tree off the tokens
      * 
      * @param tokens 
      * @return std::vector<std::string> 
      */
     std::vector<std::string> tree(std::vector<std::string> tokens) {
+<<<<<<< HEAD
       return nullptr;
+=======
+        // builds a parse tree
+>>>>>>> refs/remotes/origin/main
     }
 
 private:
@@ -463,6 +436,29 @@ private:
     [[nodiscard]] std::optional<char> peek(const size_t offset = 0) const {
         if (m_idx + offset >= m_src.length()) return {};
         return m_src.at(m_idx + offset);
+    }
+
+    /**
+     * @brief move pointer until it is not a space
+     * 
+     */
+    void pad() {
+        coom();
+        while (peek().value() == ' ')
+            coom();
+    }
+
+    /**
+     * @brief crops a term
+     *  helper function for valsub() and tokenize()
+     * 
+     * @return std::string 
+     */
+    std::string crop() {
+        std::string buffer;
+        while (peek().value() != ' ')
+            buffer.push_back(coom());
+        return buffer;
     }
 
     /**
