@@ -20,9 +20,7 @@ actually building OS'es, but none of them have thought about the
 correlation of a system's performance with the compiler and the lang
 design itself.
 
-
-==========================================================================
-
+___
 
 -- Jan 22nd
 Example of global variable in `doc.md` shows variable shadowing
@@ -30,7 +28,7 @@ We can explicitly disallow variable shadowing for now.
 However, as we go further in features, this case of shadowing should
 be overcome. An example being
 
-```
+```Polyphen
 Program:
     ...
     let x = 1
@@ -44,9 +42,7 @@ Program:
 A typical Haskell-style lambda expression that has its argument 
 shadowed by predeclared variable. 
 
-
-==========================================================================
-
+___
 
 -- Jan 30th
 Var environment is being constructed currently in tokenization step.
@@ -71,9 +67,7 @@ type when substituting via environment, nor having to setup huge
 background scheduler supporting garbage collector to scower through the
 environment finding variables and ADTs (in future!) that should be dumped.
 
-
-==========================================================================
-
+___
 
 -- Feb 2nd
 I need to run `coom` everytime a token is lexed, in a lot of branched 
@@ -81,8 +75,7 @@ cases I need to pad over ' ' space. (`pad`)
 If only C++ has something equivalent to Monad `>>=` or `bind` operator...
 
 (bruh moment setup)
-```
-CXX:
+```cpp
 ===================================================================
 ...
 
@@ -116,17 +109,23 @@ private:
 
 ```
 
-
-==========================================================================
-
+___
 
 -- Feb 8th
 Assignment operators will take the job of substituting values into the
 tokens. The values for substitutions are unprocessed strings.
 
+___
 
 -- Feb 12th
 When constructing parse tree, the value substitutions will be turned into
 an environemnt then. Tokenization will purely hold the job of seperating
 the tokens from the content.
 Rewritten the shittily implemented tokenization function with LUT (I was mislead).
+
+___
+
+-- Feb 28th
+Since the language will be more functional biased, the values were defaulted to immutable (like Rust). This is not necessarily easier than a mobile implementation, since now any STL data structures will be defaulted to some immutability based.
+In hindsight, this is good since the language will carry innate concurrency for multithreaded execution when configured. (Ugh, concurrency support will be a thing in 2 years... I think... At this point this language is looking more and more like Rust). However it will be also be different, since it will carry some garbage-collection ideas over from Haskell, C-- specifically. An example will be (possibly) STM for low contention systems.
+

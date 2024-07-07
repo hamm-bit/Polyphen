@@ -46,7 +46,7 @@ enum class ExpType {
     _con,
     _int,               // future support for `0b`, `0x`
     _float,
-    _char,
+    _str,
     _bool,
     _assign,
     _app,             // for FP
@@ -60,6 +60,7 @@ enum class ExpType {
     _return,
     _input,
     _for,
+    _while,
     _if,
     _elif,
     _else,
@@ -125,9 +126,9 @@ enum class ExpType {
 enum class GroundValueType {
     // _unit,
     _char,
-    _str,
     _bool,
-    _int_32,
+    _int,
+    _float,
 };
 
 
@@ -139,36 +140,55 @@ struct Token {
 };
 
 
-std::unordered_map<std::string, std::function<Token(int, int)>> tokTable = {
-    { "return", [](int row, int col){ Token b={ ExpType::_return, row, col}; return b; } },
-    { "if", [](int row, int col){ Token b={ ExpType::_if, row, col}; return b; } },
-    { "let", [] (int row, int col){ Token b={ ExpType::_let, row, col}; return b;} },
-    { "elif", [] (int row, int col){ Token b={ ExpType::_elif, row, col}; return b;} },
-    { "else", [] (int row, int col){ Token b={ ExpType::_else, row, col}; return b;} },
-    { "(", [] (int row, int col){ Token b={ ExpType::_lpar, row, col}; return b;} },
-    { "[", [] (int row, int col){ Token b={ ExpType::_lbra, row, col}; return b;} },
-    { "::", [] (int row, int col){ Token b={ ExpType::_tdef, row, col}; return b;} },
-    { ":", [] (int row, int col){ Token b={ ExpType::_sdef, row, col}; return b;} },
-    { "==", [] (int row, int col){ Token b={ ExpType::_eq, row, col}; return b;} },
-    { "=", [] (int row, int col){ Token b={ ExpType::_assign, row, col}; return b;} },
-    { "->", [] (int row, int col){ Token b={ ExpType::_map, row, col}; return b;} },
-    { "--", [] (int row, int col){ Token b={ ExpType::_decr, row, col}; return b;} },
-    { "-", [] (int row, int col){ Token b={ ExpType::_sub, row, col}; return b;} },
-    { "++", [] (int row, int col){ Token b={ ExpType::_incr, row, col}; return b;} },
-    { "+", [] (int row, int col){ Token b={ ExpType::_add, row, col}; return b;} },
-    { "*", [] (int row, int col){ Token b={ ExpType::_mul, row, col}; return b;} },
-    { "/", [] (int row, int col){ Token b={ ExpType::_quot, row, col}; return b;} },
-    { "%", [] (int row, int col){ Token b={ ExpType::_rem, row, col}; return b;} },
-    { "?", [] (int row, int col){ Token b={ ExpType::_if, row, col}; return b;} },
-    { "~", [] (int row, int col){ Token b={ ExpType::_else, row, col}; return b;} },
-    { "&", [] (int row, int col){ Token b={ ExpType::_and, row, col}; return b;} },
-    { "|", [] (int row, int col){ Token b={ ExpType::_or, row, col}; return b;} },
-    { "^", [] (int row, int col){ Token b={ ExpType::_xor, row, col}; return b;} },
-    { ">=", [] (int row, int col){ Token b={ ExpType::_ge, row, col}; return b;} },
-    { ">", [] (int row, int col){ Token b={ ExpType::_gt, row, col}; return b;} },
-    { "<=", [] (int row, int col){ Token b={ ExpType::_le, row, col}; return b;} },
-    { "<", [] (int row, int col){ Token b={ ExpType::_lt, row, col}; return b;} },
+/**
+ * @brief ExpType token conversion table
+ *
+ */
+static std::unordered_map<std::string, const ExpType> tokTable = {
+    { "return", ExpType::_return },
+    { "if", ExpType::_if },
+    // { "let", ExpType::_let },
+    { "elif", ExpType::_elif },
+    { "else", ExpType::_else },
+    { "while", ExpType::_while },
+    { "for", ExpType::_for },
+    { "(", ExpType::_lpar },
+    { "[", ExpType::_lbra },
+    { "::", ExpType::_tdef },
+    { ":", ExpType::_sdef },
+    { "==", ExpType::_eq },
+    { "=", ExpType::_assign },
+    { "->", ExpType::_map },
+    { "--", ExpType::_decr },
+    { "-", ExpType::_sub },
+    { "++", ExpType::_incr },
+    { "+", ExpType::_add },
+    { "*", ExpType::_mul },
+    { "/", ExpType::_quot },
+    { "%", ExpType::_rem },
+    { "?", ExpType::_if },
+    { "~", ExpType::_else },
+    { "&", ExpType::_and },
+    { "|", ExpType::_or },
+    { "^", ExpType::_xor },
+    { ">=", ExpType::_ge },
+    { ">", ExpType::_gt },
+    { "<=", ExpType::_le },
+    { "<", ExpType::_lt },
 };
+
+
+/**
+ * @brief GroundValueType token conversion table
+ *
+ */
+static std::unordered_map<std::string, const GroundValueType> tyTable = {
+    {"char", GroundValueType::_char},
+    {"bool", GroundValueType::_bool},
+    {"int", GroundValueType::_int},
+    {"float", GroundValueType::_float},
+};
+
 
 /**
  * @brief (deprecated) Classify level-of-operation of arith
@@ -201,15 +221,14 @@ public:
     {
     }
 
-    Token classify(const std::string& buffer) {
-        std::string filter;
-        bool comment_flag = false;
-        for (int i = 0; i = buffer.size(); i++) {
-            // This is the filter
-            // this is potentially dangerous
+    
+    Token classify(const std::string &type, const std::string &buffer, const std::string &content) {
+        if (tokTable.find(buffer) == tokTable.end()) {
+            // variable
+            env.insert(buffer);
+            
         }
-    } 
-
+    }
 
     /**
      * @brief splits given code content into tokens
@@ -220,21 +239,19 @@ public:
     std::vector<Token> tokenize() {
         // OOP currently not supported
         // size_t last = 0, curr = 0;
-        std::string buf;
+
+        // ty -> explicit type declaration, currently not available
+        std::string ty, buf, cnt;
+        size_t q_row = 0, q_col = 0;
 
         // bool comment_flag = false;
         bool string_flag = false;
-
         std::vector<Token> tokens;
-        Token *tok = new Token();
-        
 
-        while (peek().has_value()) {
-            char c = peek().value();
+        while (char c = peek().has_value()) {
             if (c == ' ' || c == '\n' || c == ';') {
                 // End of a term
-                tokens.emplace_back(&tok);
-                tok = new Token();
+                tokens.emplace_back(classify(ty, buf, cnt));
                 if (c == '\n') {
                     row++; col = 0;
                 } else {
@@ -242,57 +259,62 @@ public:
                 }
                 continue;
             }
-            // Redundant
-            // if (comment_flag) {
-            //     // This indicates that the scanner is in the middle of a comment,
-            //     // the parse should ignore these section until comment reaches end
-            //     while (peek().value() != '\n') coom();
-            //     continue;
-            // }
             if (string_flag) {
                 // This indicates that the scanner is amongst a string,
                 // the parser would render everything in a string as one token
-                while (peek().value() != '"') {
-                    buf.push_back(coom());
+                while ((peek(-1).value() == '\\' && peek().value() == '\"') || peek().value() != '\"') {
+                    cnt.push_back(coom());
                 } 
-
+                string_flag = false;
+                continue;
             }
-
-            // LUT for op and keyword
-            if (tokTable.find(buf) != tokTable.end()) {
-                tokens.push_back(tokTable[buf](row, col));
-                buf.clear(); 
-            }
-
+            
+            // Special character map
             switch (c) {
+                case '=':
+                    // pass `==` through to map conversion
+                    if (peek(1).value() == '=') break;
+                    pad(); 
+                    // assignment operator
+                    char d;
+                    while (peek().has_value() && \
+                          (peek().value() != ' ' || peek().value() != '\n' || peek().value() != ';')) {
+                        // extract string
+                        cnt.push_back(coom());
+                    }
+                    tokens.emplace_back();
+                    continue;
                 case ';':
                     // inline break
                     // i.e. ` a++; b++; c++ `
                     pad();
-                    if (!std::isalpha(peek().value()))
+                    if (!std::isalpha(peek().value())) {
                         std::cerr << "lex -> tokenize : symbol - expecting valid expression, \
                                      ';' should be used for multiple statements in a line at row: " \
-                            << row << " | col: " << col << std::endl;
+                                  << row << " | col: " << col << std::endl;
                         exit(EXIT_FAILURE); 
-                    break;
-                case '"':
+                    }
+                    continue;
+                case '\"':
                     // '"' indicates head of string
                     // ...:
                     if (!string_flag) {
                         // string begins
                         string_flag = true;
                     } else {
-                        string_flag = false;
-                        tokens.push_back({ ExpType::_char, row, col });
+                        std::cerr << "lex -> tokenize : symbol - missing \" at end of string, \
+                                     starting \" at row: " \
+                                  << row << " | col: " << col << std::endl;
+                        exit(EXIT_FAILURE); 
                     }
                     coom();
-                    break;
+                    continue;
                 case '#':
                     // '#' backslash indicates comments
                     // skip until end of comment
                     while (peek().value() != '\n') coom();
                     coom();
-                    break;
+                    continue;
                 // case '\\':
                 //     // non-string '\\' allows statemtn across lines
                 //     coom();
@@ -301,8 +323,6 @@ public:
                     // pass-through statement
                     break;
             }
-            buf.clear();
-            continue;
 
             if (std::isalpha(c)) {
                 
@@ -333,11 +353,11 @@ public:
                             exit(EXIT_FAILURE);
                         }
                         float_flag = peek().value() == '.';
-                        continue;
+                    } else {
+                        std::cerr << "lex -> tokenize : numerical - hostile symbol / alphabet in number at row: " \
+                                  << row << " | col: " << col << std::endl;
+                        exit(EXIT_FAILURE);
                     }
-                    std::cerr << "lex -> tokenize : numerical - hostile symbol / alphabet in number at row: " \
-                        << row << " | col: " << col << std::endl;
-                    exit(EXIT_FAILURE);
                 }
                 tokens.push_back({ (float_flag) ? ExpType::_float: ExpType::_int, row, col, buf });
                 // Wait this is the job of the evaluator wtf
@@ -355,16 +375,6 @@ public:
             }
         }
 
-        // while ((next = input.find(' ', last)) != std::string::npos) {
-        //     // std::cout << input.substr(last, next-last) << "\n";
-        //     Token classified = classify(input.substr(last, next - last));
-
-        //     tokens.emplace_back(buf);
-            
-        //     last = next + 1;
-        // }
-        // std::cout << input.substr(last) << "\n";
-      
       return tokens;
     }
 
@@ -411,11 +421,8 @@ public:
      * @return std::vector<std::string> 
      */
     std::vector<std::string> tree(std::vector<std::string> tokens) {
-<<<<<<< HEAD
-      return nullptr;
-=======
         // builds a parse tree
->>>>>>> refs/remotes/origin/main
+      return {0};
     }
 
 private:

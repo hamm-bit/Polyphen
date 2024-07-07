@@ -4,44 +4,6 @@
 
 #include "lex.h"
 
-// enum class ExpType {
-//     _variable,
-//     _operator,
-//     _construct,
-//     _number,
-//     _char,
-//     _apply,
-//     _if,
-//     _let,
-//     _fun,
-//     // _case
-// };
-
-// enum class OperatorType {
-//     _add,
-//     _sub,
-//     _mul,
-//     _exp,
-//     _quot,
-//     _rem,
-//     _neg,
-//     _gt,
-//     _ge,
-//     _lt,
-//     _le,
-//     _eq,
-//     _ne,
-//     _fst,
-//     _snd,
-//     _inl,
-//     _inr,
-// };
-
-// enum class GroundValueType {
-//     _unit,
-//     _bool,
-//     _int_32,
-// };
 
 int main(int argc, char *argv[]) {
     // recall that argc counts the number of arguments
