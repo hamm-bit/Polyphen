@@ -21,10 +21,12 @@
 #define _LEX
 
 #include <iostream>
+#include <queue>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <optional>
+#include <variant>
 #include <functional>
 #include <algorithm>
 #include <any>
@@ -39,6 +41,7 @@ const bool FP = false;
 
 enum class KeywordType {
 };
+
 
 enum class ExpType {
     _var,
@@ -77,6 +80,7 @@ enum class ExpType {
     _sub,
     _decr,              // `--` or `-=`
     _mul,
+    _div,               // floating point
     _exp,
     _quot,
     _rem,
@@ -138,6 +142,253 @@ struct Token {
     size_t row = 0, col = 0;
     std::optional<std::string> val {};
 };
+
+struct NodeExpr;
+
+struct NodeIdent {
+    Token ident;
+};
+
+struct NodeIntLit {
+    Token int_lit;
+};
+
+// =================================
+// ======== Recursive Nodes ========
+// =================================
+
+// ======== Arithmetic Nodes =========
+
+struct NodeParen {
+    NodeExpr *l, *r;
+};
+
+struct NodeArithExpr;
+
+struct NodeArithNeg {
+    NodeArithExpr *l;
+};
+
+struct NodeArithAdd {
+    NodeArithExpr *l, *r;
+};
+
+struct NodeArithMul {
+    NodeArithExpr *l, *r;
+};
+
+struct NodeArithSub {
+    NodeArithExpr *l, *r;
+};
+
+struct NodeArithDiv {
+    NodeArithExpr *l, *r;
+};
+
+struct NodeArithQuot {
+    NodeArithExpr *l, *r;
+};
+
+struct NodeArithRem {
+    NodeArithExpr *l, *r;
+};
+
+// NOTE:
+// incr or decr operations techincally falls under control flow
+// as of now they will not be implemented
+
+struct NodeArithExpo {
+    NodeArithExpr *l, *r;
+};
+
+// Binary arithmetic operators, defaulted to fundamental operations
+struct NodeArithBin {
+    std::variant<NodeArithAdd*, NodeArithSub*, NodeArithMul*, NodeArithDiv*, \
+        NodeArithQuot*, NodeArithRem*, NodeArithExpo*> binop;
+};
+
+// Arithmetic wrappers for tree descents, defaulting to paren, int lit, idents 
+/*
+struct NodeArithTerm {
+    std::variant<NodeParen*, NodeIdent*, NodeIntLit*> term;
+};
+*/
+
+// Arithmetic expr wrapper
+/*
+struct NodeArithExpr {
+    std::variant<NodeArithTerm*, NodeArithBin*> expr;
+};
+*/
+
+// ======== Logical Nodes =========
+struct NodeBoolLit {
+    Token bool_lit;
+};
+
+struct NodeLogicGt {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicGe {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicLt {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicLe {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicEq {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicNe {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicAnd {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicOr {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicNot {
+    NodeExpr *l, *r;
+};
+
+struct NodeLogicXor {
+    NodeExpr *l, *r;
+};
+
+// Logical shift right
+// left: num ro-be-shifted
+// right: pos to-be-shifted
+struct NodeLogicSrl {
+    NodeExpr *l, *r;
+};
+
+// Logical shift left
+// left: num ro-be-shifted
+// right: pos to-be-shifted
+struct NodeLogicSll {
+    NodeExpr *l, *r;
+};
+
+// Binary logical operators, defaulted to fundamental operations
+struct NodeLogicBin {
+    std::variant<NodeLogicGt*, NodeLogicGe*, NodeLogicLt*, NodeLogicLe*, \
+        NodeLogicEq*, NodeLogicNe*, NodeLogicAnd*, NodeLogicOr*, \
+        NodeLogicNot*, NodeLogicXor*, NodeLogicSrl*, NodeLogicSll*> binop;
+};
+
+// ======== Summed terms and expressions ========
+//
+struct NodeTerm {
+    std::variant<NodeParen*, NodeIdent*, \
+        NodeBoolLit*, NodeIntLit*> term;
+};
+
+struct NodeExpr {
+    std::variant<NodeArithBin*, NodeLogicBin*, \
+        NodeTerm*> expr;
+};
+
+// ======== Statements and Control Flows ========
+//
+struct NodeStmt;
+
+// Contains: statement exit steps
+struct NodeStmtEnd {
+    NodeExpr *expr;
+};
+
+struct NodeScope {
+    std::vector<NodeStmt*> stmts;
+};
+
+struct NodeStmtLet {
+    Token ident;
+    NodeExpr *expr {};
+};
+
+struct PredIf;
+
+struct PredIfElif {
+    NodeExpr *expr {};
+    NodeScope *scope {};
+    std::optional<PredIf*> pred;
+};
+
+struct PredIfElse {
+    NodeScope *scope;
+};
+
+// Else If predicates
+struct PredIf {
+    std::variant<PredIfElif*, PredIfElse*> expr;
+};
+
+
+struct NodeStmtIf {
+    NodeExpr *expr {};
+    NodeScope *scope {};
+    std::optional<PredIf*> pred;
+};
+
+struct NodeStmtAssign {
+    Token ident;
+    NodeExpr* expr {};
+};
+
+struct NodeStmt {
+    std::variant<NodeStmtEnd*, NodeStmtLet*, NodeScope*, NodeStmtIf*, NodeStmtAssign*> var;
+};
+
+struct NodeProgram {
+    std::vector<NodeStmt*> stmts;
+};
+
+// ======== Define general binary operations (currying) ========
+
+struct NodeBin {
+    NodeExpr *l, *r;
+};
+
+struct NodeBinFunc {
+    std::vector<NodeStmt*> stmts;
+    std::queue<Token> args;
+    NodeScope *scope {};
+};
+
+struct NodeFuncApp {
+    NodeBinFunc *func;
+    Token *arg;
+};
+
+// Abstract constructors
+struct NodeExprCon;
+
+struct NodeMap {
+    NodeBinFunc *func;
+    NodeExprCon *list;
+};
+
+// Constructors should theretically be universal
+// However for the current implementation it will be limited to arithmetic objects
+// Left expr, right con, hence foldl applicable
+struct NodeExprCon {
+    NodeExpr* expr;
+    NodeExprCon* con;
+};
+
+
+
 
 
 /**
@@ -202,6 +453,7 @@ inline std::optional<int> alu_c(const ExpType type) {
         case ExpType::_sub:
             return 0;
         case ExpType::_mul:
+        case ExpType::_div:
         case ExpType::_quot:
         case ExpType::_rem:
             return 1;
@@ -241,6 +493,8 @@ public:
         // size_t last = 0, curr = 0;
 
         // ty -> explicit type declaration, currently not available
+        // buf -> variable buffer
+        // cnt -> value content
         std::string ty, buf, cnt;
         size_t q_row = 0, q_col = 0;
 
